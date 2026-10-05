@@ -43,6 +43,14 @@ Keep in mind:
 
 Requires macOS 13 or later and Claude Desktop. The app is universal (Apple silicon and Intel).
 
+**Homebrew.**
+
+```bash
+brew install --cask maycuatroi1/tap/claude-profiles
+```
+
+Upgrade with `brew upgrade --cask claude-profiles`. The app is not notarized, so the cask clears its quarantine flag after install; see [the tap](https://github.com/maycuatroi1/homebrew-tap).
+
 **One command.** Downloads the latest release, checks its SHA-256, installs it into `~/Applications` and starts it:
 
 ```bash
@@ -88,7 +96,7 @@ app="$HOME/Applications/Claude Profiles.app/Contents/MacOS/ClaudeProfiles"
 
 ## Uninstall
 
-Quit the app from its menu and delete `Claude Profiles.app`, or from a clone run `make uninstall`. This removes the app. Profiles, Claude data folders and sessions stay where they are.
+`brew uninstall --cask claude-profiles` if you used Homebrew (add `--zap` to also move its settings and the data folders of profiles it created to the Trash). Otherwise quit the app from its menu and delete `Claude Profiles.app`, or from a clone run `make uninstall`. Without `--zap` this removes only the app. Profiles, Claude data folders and sessions stay where they are.
 
 ## Development
 
@@ -99,7 +107,7 @@ make snapshot   # draw the menu with your real profiles to build/menu.png
 UNIVERSAL=1 make app   # arm64 + x86_64 (needs full Xcode)
 ```
 
-Releases: bump `VERSION`, commit, then push a matching tag (`git tag v0.2.0 && git push origin v0.2.0`). The release workflow tests, builds the universal app and publishes the zip with its checksum.
+Releases: bump `VERSION`, commit, then push a matching tag (`git tag v0.2.0 && git push origin v0.2.0`). The release workflow tests, builds the universal app and publishes the zip with its checksum. The Homebrew cask follows within about an hour.
 
 Source layout, under `Sources/ClaudeProfiles/`:
 

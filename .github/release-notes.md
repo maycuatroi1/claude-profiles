@@ -1,6 +1,12 @@
 Universal app for Apple silicon and Intel Macs, macOS 13 or later.
 
-**Install with one command** (downloads this release, checks its SHA-256, installs into `~/Applications` and starts it):
+**Homebrew:**
+
+```bash
+brew install --cask maycuatroi1/tap/claude-profiles
+```
+
+**Or install with one command** (downloads this release, checks its SHA-256, installs into `~/Applications` and starts it):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/maycuatroi1/claude-profiles/main/scripts/get.sh | bash
