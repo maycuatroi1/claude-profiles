@@ -9,14 +9,14 @@ jobs:
   build:
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: swift --version
       - run: swift build
       - run: swift test
       - run: scripts/bundle.sh
       - name: Zip the app
         run: ditto -c -k --keepParent "build/Claude Profiles.app" build/Claude-Profiles.zip
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: Claude-Profiles
           path: build/Claude-Profiles.zip
