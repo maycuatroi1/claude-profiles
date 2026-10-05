@@ -8,11 +8,11 @@ struct SyncReport {
     var problems: [String] = []
 
     var summary: String {
-        if participants < 2 { return "Cần ít nhất 2 profile bật chia sẻ" }
-        if added == 0 && updated == 0 { return "Đã khớp" }
+        if participants < 2 { return "Turn on sharing in two or more profiles" }
+        if added == 0 && updated == 0 { return "In sync" }
         var parts: [String] = []
-        if added > 0 { parts.append("+\(added) phiên mới") }
-        if updated > 0 { parts.append("\(updated) cập nhật") }
+        if added > 0 { parts.append("+\(added) new") }
+        if updated > 0 { parts.append("\(updated) updated") }
         return parts.joined(separator: ", ")
     }
 }

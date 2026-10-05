@@ -5,7 +5,7 @@ enum LaunchError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .claudeMissing: return "Không tìm thấy Claude.app. Hãy cài Claude Desktop trước."
+        case .claudeMissing: return "Claude.app was not found. Install Claude Desktop first."
         }
     }
 }

@@ -104,9 +104,17 @@ enum CLI {
         let app = NSApplication.shared
         app.setActivationPolicy(.prohibited)
         app.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-        // The menu bar window draws its own material; offscreen there is none.
+        // The menu bar window draws its own material and frame; offscreen there
+        // is neither, so draw a rounded panel with a soft shadow around it.
         let view = ContentView().environmentObject(AppModel(live: false))
             .background(Color(nsColor: .windowBackgroundColor))
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .strokeBorder(Color.primary.opacity(0.12), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(0.22), radius: 18, y: 8)
+            .padding(32)
         let host = NSHostingView(rootView: view)
         host.frame = NSRect(origin: .zero, size: host.fittingSize)
         let window = NSWindow(

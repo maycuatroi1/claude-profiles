@@ -43,7 +43,7 @@ enum ProfileStore {
     /// First run: the default profile plus any Claude data folder already in
     /// use, from running instances or folders like ~/ClaudeWork.
     static func discover() -> [Profile] {
-        var profiles = [Profile(id: "default", name: "Cá nhân", dataDir: nil, color: 0, shareSessions: true)]
+        var profiles = [Profile(id: "default", name: "Personal", dataDir: nil, color: 0, shareSessions: true)]
         var seen: Set<String> = [canonicalPath(Paths.defaultDataDir.path), canonicalPath(Paths.claudeDataDir.path)]
         var candidates: [String] = ClaudeInstances.list().compactMap { $0.dataDir }
         let fm = FileManager.default

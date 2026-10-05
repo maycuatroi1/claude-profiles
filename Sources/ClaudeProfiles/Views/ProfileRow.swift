@@ -17,14 +17,14 @@ struct ProfileRow: View {
             avatar
             VStack(alignment: .leading, spacing: 2) {
                 if renaming {
-                    TextField("Tên profile", text: $draft, onCommit: commitRename)
+                    TextField("Profile name", text: $draft, onCommit: commitRename)
                         .textFieldStyle(.roundedBorder)
                         .font(.system(size: 12))
                 } else {
                     HStack(spacing: 6) {
                         Text(profile.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
                         if model.isFront(profile) {
-                            Text("đang dùng")
+                            Text("active")
                                 .font(.system(size: 10, weight: .medium))
                                 .padding(.horizontal, 5)
                                 .padding(.vertical, 1)
@@ -39,7 +39,7 @@ struct ProfileRow: View {
             if model.busy.contains(profile.id) {
                 ProgressView().controlSize(.small).frame(width: 70)
             } else {
-                Button(isRunning ? "Chuyển tới" : "Mở") { model.open(profile) }
+                Button(isRunning ? "Switch" : "Open") { model.open(profile) }
                     .controlSize(.small)
                     .modifier(QuickSwitchShortcut(index: index))
             }
@@ -70,45 +70,46 @@ struct ProfileRow: View {
     }
 
     private var subtitle: String {
-        var parts: [String] = [isRunning ? "Đang chạy" : "Đã tắt"]
+        var parts: [String] = [isRunning ? "Running" : "Stopped"]
         let account = model.accounts[profile.id]
         if account?.signedIn != true {
-            parts.append("chưa đăng nhập")
+            parts.append("signed out")
         } else {
-            parts.append("\(model.sessionCounts[profile.id] ?? 0) phiên Code")
+            let count = model.sessionCounts[profile.id] ?? 0
+            parts.append(count == 1 ? "1 Code session" : "\(count) Code sessions")
         }
-        if !profile.shareSessions { parts.append("không chia sẻ") }
+        if !profile.shareSessions { parts.append("not shared") }
         return parts.joined(separator: ", ")
     }
 
     private var actionsMenu: some View {
         Menu {
-            Button("Đổi tên…") {
+            Button("Rename…") {
                 draft = profile.name
                 renaming = true
             }
-            Menu("Màu") {
+            Menu("Color") {
                 ForEach(palette.indices, id: \.self) { colorIndex in
                     Button(colorNames[colorIndex]) { model.update(profile) { $0.color = colorIndex } }
                 }
             }
             Toggle(
-                "Chia sẻ lịch sử phiên Code",
+                "Share Code Sessions",
                 isOn: Binding(
                     get: { profile.shareSessions },
                     set: { value in model.update(profile) { $0.shareSessions = value } }))
             Divider()
             if isRunning {
-                Button("Khởi động lại") { model.restart(profile) }
-                Button("Thoát profile này") { model.quit(profile) }
+                Button("Restart") { model.restart(profile) }
+                Button("Quit This Profile") { model.quit(profile) }
             }
-            Button("Mở thư mục dữ liệu") { model.reveal(profile) }
+            Button("Show Data Folder") { model.reveal(profile) }
             Divider()
-            Button("Đưa lên") { model.move(profile, by: -1) }.disabled(index == 0)
-            Button("Đưa xuống") { model.move(profile, by: 1) }.disabled(index == model.profiles.count - 1)
+            Button("Move Up") { model.move(profile, by: -1) }.disabled(index == 0)
+            Button("Move Down") { model.move(profile, by: 1) }.disabled(index == model.profiles.count - 1)
             if !profile.isDefault {
                 Divider()
-                Button("Gỡ khỏi danh sách (giữ dữ liệu)") { model.remove(profile) }
+                Button("Remove from List (Keeps Data)") { model.remove(profile) }
             }
         } label: {
             Image(systemName: "ellipsis.circle")

@@ -21,7 +21,11 @@ final class AppModel: ObservableObject {
     init(live: Bool = true) {
         settings = ProfileStore.load()
         refresh()
-        guard live else { return }
+        guard live else {
+            // A still picture shows what a sync would do now, without doing it.
+            lastSync = (Date(), SessionSync(dryRun: true).run(profiles, running: Set(running.keys)))
+            return
+        }
         sync()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in
@@ -83,7 +87,7 @@ final class AppModel: ObservableObject {
             await MainActor.run {
                 self.lastSync = (Date(), report)
                 self.syncing = false
-                if let problem = report.problems.first { self.message = "Đồng bộ lỗi: \(problem)" }
+                if let problem = report.problems.first { self.message = "Sync problem: \(problem)" }
                 self.refresh()
             }
         }
@@ -105,7 +109,7 @@ final class AppModel: ObservableObject {
         guard let app = running[profile.id] else { return }
         busy.insert(profile.id)
         Task {
-            if !(await Launcher.terminate(app)) { message = "\(profile.name) chưa thoát. Hãy thử đóng từ cửa sổ Claude." }
+            if !(await Launcher.terminate(app)) { message = "\(profile.name) did not quit. Quit it from its Claude window." }
             busy.remove(profile.id)
             refresh()
         }
@@ -119,7 +123,7 @@ final class AppModel: ObservableObject {
             if await Launcher.terminate(app) {
                 do { try await Launcher.switchTo(profile, settings: settings) } catch { message = error.localizedDescription }
             } else {
-                message = "\(profile.name) chưa thoát nên chưa khởi động lại được."
+                message = "\(profile.name) did not quit, so it was not restarted."
             }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             busy.remove(profile.id)
@@ -133,7 +137,7 @@ final class AppModel: ObservableObject {
         let id = ProfileStore.uniqueID(ProfileStore.slug(display), taken: profiles.map(\.id))
         let folder = existingFolder ?? Paths.newProfilesDir.appendingPathComponent(id, isDirectory: true)
         if profiles.contains(where: { canonicalPath($0.dataURL.path) == canonicalPath(folder.path) }) {
-            message = "Thư mục này đã thuộc một profile khác."
+            message = "That folder already belongs to another profile."
             return
         }
         let profile = Profile(
@@ -147,7 +151,7 @@ final class AppModel: ObservableObject {
 
     func pickExistingFolder() {
         let panel = NSOpenPanel()
-        panel.title = "Chọn thư mục dữ liệu Claude có sẵn"
+        panel.title = "Choose an existing Claude data folder"
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.canCreateDirectories = true
@@ -198,13 +202,13 @@ final class AppModel: ObservableObject {
             do {
                 if newValue { try SMAppService.mainApp.register() } else { try SMAppService.mainApp.unregister() }
             } catch {
-                message = "Không đổi được mục khởi động: \(error.localizedDescription)"
+                message = "Could not change the login item: \(error.localizedDescription)"
             }
             objectWillChange.send()
         }
     }
 
     private func persist() {
-        do { try ProfileStore.save(settings) } catch { message = "Không lưu được cấu hình: \(error.localizedDescription)" }
+        do { try ProfileStore.save(settings) } catch { message = "Could not save settings: \(error.localizedDescription)" }
     }
 }

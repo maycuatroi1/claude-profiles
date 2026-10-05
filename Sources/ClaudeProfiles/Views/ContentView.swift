@@ -22,7 +22,7 @@ struct ContentView: View {
                 Button {
                     adding = true
                 } label: {
-                    Label("Thêm profile", systemImage: "plus.circle")
+                    Label("Add profile", systemImage: "plus.circle")
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(RowButtonStyle())
@@ -48,7 +48,7 @@ struct ContentView: View {
                 .foregroundStyle(palette[0])
             VStack(alignment: .leading, spacing: 1) {
                 Text("Claude Profiles").font(.system(size: 13, weight: .semibold))
-                Text("Mỗi profile là một tài khoản Claude riêng").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text("One Claude account per profile").font(.system(size: 11)).foregroundStyle(.secondary)
             }
             Spacer()
             Button {
@@ -57,7 +57,7 @@ struct ContentView: View {
                 Image(systemName: "arrow.clockwise")
             }
             .buttonStyle(.borderless)
-            .help("Làm mới trạng thái")
+            .help("Refresh")
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
@@ -65,12 +65,12 @@ struct ContentView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Toggle("Đóng profile khác khi chuyển", isOn: $model.closeOthersOnSwitch)
-            Toggle("Mở cùng macOS", isOn: $model.launchAtLogin)
+            Toggle("Quit other profiles when switching", isOn: $model.closeOthersOnSwitch)
+            Toggle("Open at login", isOn: $model.launchAtLogin)
             HStack {
-                Text("⌘1-⌘9 để chuyển nhanh").font(.system(size: 11)).foregroundStyle(.secondary)
+                Text("⌘1 to ⌘9 switch profiles").font(.system(size: 11)).foregroundStyle(.secondary)
                 Spacer()
-                Button("Thoát") { NSApp.terminate(nil) }
+                Button("Quit") { NSApp.terminate(nil) }
                     .keyboardShortcut("q")
             }
         }

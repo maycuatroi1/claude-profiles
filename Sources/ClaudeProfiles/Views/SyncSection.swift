@@ -9,20 +9,20 @@ struct SyncSection: View {
                 Image(systemName: "arrow.triangle.2.circlepath")
                     .foregroundStyle(.secondary)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text("Lịch sử phiên Code").font(.system(size: 12, weight: .semibold))
+                    Text("Code session history").font(.system(size: 12, weight: .semibold))
                     Text(status).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if model.syncing {
                     ProgressView().controlSize(.small)
                 } else {
-                    Button("Đồng bộ") { model.sync() }.controlSize(.small)
+                    Button("Sync") { model.sync() }.controlSize(.small)
                 }
             }
             Text(
-                "Phiên mới được chép sang ngay. Bản cập nhật của phiên đã có chỉ chép sang khi profile nhận đang tắt, "
-                    + "nên hãy khởi động lại profile đó để thấy. Lịch sử tab Chat nằm trên máy chủ của từng tài khoản, "
-                    + "không chia sẻ được."
+                "New sessions are copied right away. A profile gets changes to sessions it already has "
+                    + "only while it is closed, so restart it to see them. Chat tab history lives on "
+                    + "Anthropic's servers per account and is not shared."
             )
             .font(.system(size: 10.5))
             .foregroundStyle(.secondary)
@@ -33,7 +33,7 @@ struct SyncSection: View {
     }
 
     private var status: String {
-        guard let last = model.lastSync else { return "Chưa đồng bộ" }
+        guard let last = model.lastSync else { return "Not synced yet" }
         let time = last.date.formatted(date: .omitted, time: .shortened)
         return "\(time): \(last.report.summary)"
     }

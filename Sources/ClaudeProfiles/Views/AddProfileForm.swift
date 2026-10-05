@@ -8,26 +8,26 @@ struct AddProfileForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Profile mới").font(.system(size: 12, weight: .semibold))
-            TextField("Tên, ví dụ: Công ty", text: $name)
+            Text("New profile").font(.system(size: 12, weight: .semibold))
+            TextField("Name, for example Work", text: $name)
                 .textFieldStyle(.roundedBorder)
                 .onSubmit(create)
-            Toggle("Chia sẻ lịch sử phiên Code với các profile khác", isOn: $share)
+            Toggle("Share Code sessions with other profiles", isOn: $share)
                 .toggleStyle(.checkbox)
                 .font(.system(size: 12))
-            Text("Claude sẽ mở một cửa sổ mới. Đăng nhập tài khoản cho profile này ở đó.")
+            Text("Claude opens a new window. Sign in there with this profile's account.")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             HStack {
-                Button("Dùng thư mục có sẵn…") {
+                Button("Use Existing Folder…") {
                     onClose()
                     model.pickExistingFolder()
                 }
                 .controlSize(.small)
                 Spacer()
-                Button("Huỷ", action: onClose).controlSize(.small)
-                Button("Tạo và mở", action: create)
+                Button("Cancel", action: onClose).controlSize(.small)
+                Button("Create and Open", action: create)
                     .controlSize(.small)
                     .keyboardShortcut(.defaultAction)
             }

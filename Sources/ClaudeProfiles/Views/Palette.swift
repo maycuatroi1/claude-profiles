@@ -9,4 +9,4 @@ let palette: [Color] = [
     Color(red: 0.13, green: 0.62, blue: 0.70),
 ]
 
-let colorNames = ["Cam đất", "Xanh dương", "Xanh lá", "Tím", "Hồng", "Xanh ngọc"]
+let colorNames = ["Terracotta", "Blue", "Green", "Purple", "Pink", "Teal"]

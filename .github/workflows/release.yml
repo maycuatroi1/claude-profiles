@@ -1,0 +1,36 @@
+name: Release
+
+# Push a tag that matches VERSION, for example v0.1.0, to publish a release
+# with a universal (Apple silicon + Intel) app.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the tag matches VERSION
+        run: |
+          version=$(cat VERSION)
+          [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "tag $GITHUB_REF_NAME does not match VERSION $version"; exit 1; }
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+      - run: swift test
+      - run: UNIVERSAL=1 scripts/bundle.sh
+      - name: Package
+        run: |
+          cd build
+          ditto -c -k --keepParent "Claude Profiles.app" "Claude-Profiles-$VERSION.zip"
+          shasum -a 256 "Claude-Profiles-$VERSION.zip" > "Claude-Profiles-$VERSION.zip.sha256"
+          cat "Claude-Profiles-$VERSION.zip.sha256"
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "build/Claude-Profiles-$VERSION.zip" "build/Claude-Profiles-$VERSION.zip.sha256" \
+            --title "Claude Profiles $VERSION" --notes-file .github/release-notes.md

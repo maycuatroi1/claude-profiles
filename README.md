@@ -4,7 +4,10 @@ A macOS menu bar app that runs Claude Desktop under several accounts side by sid
 
 > **Unofficial.** Not affiliated with or endorsed by Anthropic. It relies on Electron's `--user-data-dir` flag and on Claude Desktop's internal session file layout. A Claude Desktop update can change either one.
 
-<img src="docs/menu.png" width="360" alt="The Claude Profiles menu with two running profiles">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/menu-dark.png">
+  <img src="docs/menu-light.png" width="420" alt="The Claude Profiles menu with two running profiles, Personal and Work">
+</picture>
 
 ## What it does
 
@@ -13,8 +16,6 @@ A macOS menu bar app that runs Claude Desktop under several accounts side by sid
 - **Add a profile.** A new Claude window opens; sign in there with the other account. You can also point a profile at an existing folder. Folders like `~/ClaudeWork` that you already started with `--user-data-dir` are picked up on first run.
 - **Share Code tab history.** Sessions you start in the Code tab of one profile show up in the others.
 - Optional: close the other profiles when you switch, and start at login.
-
-The UI is in Vietnamese for now.
 
 ## Sharing Code session history
 
@@ -27,7 +28,7 @@ Claude Profiles copies those records between the profiles that have sharing turn
 
 - A session missing from a profile is copied in, about once a minute and whenever a profile starts or quits.
 - A session present on both sides is replaced by the copy with the newer activity, but only while the receiving profile is closed. A running Claude keeps its sessions in memory and would write over the change.
-- Claude reads its session list when it starts, so restart a profile (⋯ menu, *Khởi động lại*) to see sessions copied into it.
+- Claude reads its session list when it starts, so restart a profile (⋯ menu, *Restart*) to see sessions copied into it.
 - A session you remove from one profile stays removed there.
 - Remote Control links belong to one account and are dropped when a record crosses to another account.
 
@@ -40,7 +41,21 @@ Keep in mind:
 
 ## Install
 
-Requires macOS 13 or later, Claude Desktop, and a Swift 5.9+ toolchain (Xcode or the Command Line Tools: `xcode-select --install`).
+Requires macOS 13 or later and Claude Desktop. The app is universal (Apple silicon and Intel).
+
+**One command.** Downloads the latest release, checks its SHA-256, installs it into `~/Applications` and starts it:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/maycuatroi1/claude-profiles/main/scripts/get.sh | bash
+```
+
+**Download.** Get `Claude-Profiles-<version>.zip` from [Releases](https://github.com/maycuatroi1/claude-profiles/releases/latest), unzip it and move `Claude Profiles.app` to Applications. The app is not notarized, so macOS blocks the first launch of a browser download. Open System Settings, Privacy & Security, and click *Open Anyway*, or run:
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/Claude Profiles.app"
+```
+
+**From source.** Needs a Swift 5.9+ toolchain (Xcode or `xcode-select --install`):
 
 ```bash
 git clone https://github.com/maycuatroi1/claude-profiles.git
@@ -48,9 +63,7 @@ cd claude-profiles
 make install
 ```
 
-This builds `build/Claude Profiles.app`, installs it into `~/Applications` (set `PREFIX` to change that) and starts it. Look for the two-person icon in the menu bar. The first time you switch to a running profile, macOS may ask whether Claude Profiles may control Claude; that permission is what reopens a closed Claude window.
-
-`UNIVERSAL=1 make app` builds for both Apple silicon and Intel (needs full Xcode).
+Look for the two-person icon in the menu bar. The first time you switch to a running profile, macOS may ask whether Claude Profiles may control Claude; that permission is what reopens a closed Claude window.
 
 ## Terminal commands
 
@@ -75,11 +88,7 @@ app="$HOME/Applications/Claude Profiles.app/Contents/MacOS/ClaudeProfiles"
 
 ## Uninstall
 
-```bash
-make uninstall
-```
-
-This removes the app. Profiles, Claude data folders and sessions stay where they are.
+Quit the app from its menu and delete `Claude Profiles.app`, or from a clone run `make uninstall`. This removes the app. Profiles, Claude data folders and sessions stay where they are.
 
 ## Development
 
@@ -87,7 +96,10 @@ This removes the app. Profiles, Claude data folders and sessions stay where they
 make test       # unit tests (swift test)
 make app        # release build of build/Claude Profiles.app
 make snapshot   # draw the menu with your real profiles to build/menu.png
+UNIVERSAL=1 make app   # arm64 + x86_64 (needs full Xcode)
 ```
+
+Releases: bump `VERSION`, commit, then push a matching tag (`git tag v0.2.0 && git push origin v0.2.0`). The release workflow tests, builds the universal app and publishes the zip with its checksum.
 
 Source layout, under `Sources/ClaudeProfiles/`:
 
