@@ -52,4 +52,22 @@ enum IconRenderer {
         }
         return rep
     }
+
+    /// The menu bar icon while a profile is in use: its initials on its
+    /// colour, so you can tell which account you are in at a glance.
+    static func badge(initials: String, color: NSColor, name: String) -> NSImage {
+        let image = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { rect in
+            let disc = rect.insetBy(dx: 1, dy: 1)
+            color.setFill()
+            NSBezierPath(ovalIn: disc).fill()
+            let font = NSFont.systemFont(ofSize: initials.count > 1 ? 7.5 : 9, weight: .bold)
+            let text = NSAttributedString(string: initials, attributes: [.font: font, .foregroundColor: NSColor.white])
+            let size = text.size()
+            text.draw(at: NSPoint(x: disc.midX - size.width / 2, y: disc.midY - size.height / 2))
+            return true
+        }
+        image.isTemplate = false
+        image.accessibilityDescription = "Claude Profiles: \(name)"
+        return image
+    }
 }

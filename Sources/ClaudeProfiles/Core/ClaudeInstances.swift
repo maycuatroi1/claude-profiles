@@ -37,26 +37,62 @@ enum ClaudeInstances {
         return nil
     }
 
-    /// argv of another process via KERN_PROCARGS2: argc, exec path, padding, argv.
-    static func processArguments(_ pid: pid_t) -> [String] {
+    static func processArguments(_ pid: pid_t) -> [String] { processStrings(pid).args }
+
+    /// argv and environment of another process of this user via
+    /// KERN_PROCARGS2: argc, exec path, padding, argv, then the environment.
+    /// When a name appears twice the first one wins, as with getenv.
+    static func processStrings(_ pid: pid_t) -> (args: [String], env: [String: String]) {
         var mib: [Int32] = [CTL_KERN, KERN_PROCARGS2, pid]
         var size = 0
-        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else { return [] }
+        guard sysctl(&mib, 3, nil, &size, nil, 0) == 0, size > MemoryLayout<Int32>.size else { return ([], [:]) }
         var buffer = [UInt8](repeating: 0, count: size)
-        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return [] }
+        guard sysctl(&mib, 3, &buffer, &size, nil, 0) == 0 else { return ([], [:]) }
         let argc = Int(buffer.withUnsafeBytes { $0.load(as: Int32.self) })
         var index = MemoryLayout<Int32>.size
         while index < size && buffer[index] != 0 { index += 1 }
         while index < size && buffer[index] == 0 { index += 1 }
         var args: [String] = []
+        var env: [String: String] = [:]
         var start = index
-        while index < size && args.count < argc {
+        while index < size {
             if buffer[index] == 0 {
-                args.append(String(decoding: buffer[start..<index], as: UTF8.self))
+                // An empty string after argv ends the environment.
+                if index == start && args.count == argc { break }
+                let text = String(decoding: buffer[start..<index], as: UTF8.self)
+                if args.count < argc {
+                    args.append(text)
+                } else if let equals = text.firstIndex(of: "=") {
+                    let name = String(text[..<equals])
+                    if env[name] == nil { env[name] = String(text[text.index(after: equals)...]) }
+                }
                 start = index + 1
             }
             index += 1
         }
-        return args
+        return (args, env)
+    }
+
+    struct ProcessEntry {
+        let pid: pid_t
+        let parent: pid_t
+        /// The short command name the kernel keeps (p_comm), at most 16 bytes.
+        let name: String
+    }
+
+    static func processTable() -> [ProcessEntry] {
+        var mib: [Int32] = [CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0]
+        var size = 0
+        guard sysctl(&mib, 4, nil, &size, nil, 0) == 0 else { return [] }
+        // Room for processes started between the two calls.
+        size += size / 8
+        let stride = MemoryLayout<kinfo_proc>.stride
+        var procs = [kinfo_proc](repeating: kinfo_proc(), count: size / stride)
+        guard sysctl(&mib, 4, &procs, &size, nil, 0) == 0 else { return [] }
+        return procs.prefix(size / stride).map { proc in
+            var comm = proc.kp_proc.p_comm
+            let name = withUnsafeBytes(of: &comm) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+            return ProcessEntry(pid: proc.kp_proc.p_pid, parent: proc.kp_eproc.e_ppid, name: name)
+        }
     }
 }

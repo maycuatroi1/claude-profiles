@@ -33,6 +33,8 @@ struct ContentView: View {
                 MessageBanner(text: message) { model.message = nil }
             }
             Divider()
+            SessionsSection()
+            Divider()
             SyncSection()
             Divider()
             footer
@@ -65,7 +67,31 @@ struct ContentView: View {
 
     private var footer: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Toggle("Quit other profiles when switching", isOn: $model.closeOthersOnSwitch)
+            HStack {
+                Text("Other profiles when switching")
+                Spacer()
+                Picker("Other profiles when switching", selection: $model.othersOnSwitch) {
+                    Text("Leave open").tag(OthersOnSwitch.keep)
+                    Text("Hide").tag(OthersOnSwitch.hide)
+                    Text("Quit").tag(OthersOnSwitch.quit)
+                }
+                .labelsHidden()
+                .fixedSize()
+            }
+            if model.othersOnSwitch == .hide {
+                Text(
+                    model.canMoveWindows
+                        ? "One window: the others keep running hidden, and the profile you switch to takes the same place."
+                        : "The others keep running hidden. To open each profile in the same place, allow Claude Profiles under Accessibility."
+                )
+                .font(.system(size: 10.5))
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                if !model.canMoveWindows {
+                    Button("Allow Window Moving…") { WindowFrames.askForAccess() }.controlSize(.small)
+                }
+            }
+            Toggle("⌃⌥⇥ rotates through profiles", isOn: $model.cycleHotKey)
             Toggle("Open at login", isOn: $model.launchAtLogin)
             HStack {
                 Text("⌘1 to ⌘9 switch profiles").font(.system(size: 11)).foregroundStyle(.secondary)

@@ -54,14 +54,8 @@ struct ProfileRow: View {
     }
 
     private var avatar: some View {
-        ZStack {
-            Circle().fill(isRunning ? tint : tint.opacity(0.18))
-            Text(initials(profile.name))
-                .font(.system(size: 12, weight: .bold))
-                .foregroundStyle(isRunning ? Color.white : tint)
-        }
-        .frame(width: 30, height: 30)
-        .overlay(alignment: .bottomTrailing) {
+        ProfileAvatar(profile: profile, filled: isRunning)
+            .overlay(alignment: .bottomTrailing) {
             if isRunning {
                 Circle().fill(Color.green).frame(width: 9, height: 9)
                     .overlay(Circle().stroke(Color(nsColor: .windowBackgroundColor), lineWidth: 1.5))
@@ -75,6 +69,7 @@ struct ProfileRow: View {
         if account?.signedIn != true {
             parts.append("signed out")
         } else {
+            if let open = model.sessions[profile.id]?.count, open > 0 { parts.append("\(open) open") }
             let count = model.sessionCounts[profile.id] ?? 0
             parts.append(count == 1 ? "1 Code session" : "\(count) Code sessions")
         }
