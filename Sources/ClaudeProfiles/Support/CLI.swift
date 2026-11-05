@@ -1,9 +1,10 @@
 import AppKit
 import SwiftUI
+import UserNotifications
 
 enum CLI {
     static let commands: Set<String> = [
-        "--help", "-h", "--version", "--list", "--sessions", "--open", "--sync", "--render-icon", "--snapshot",
+        "--help", "-h", "--version", "--list", "--sessions", "--watch", "--notify-test", "--open", "--sync", "--render-icon", "--snapshot",
     ]
 
     static let usage = """
@@ -13,6 +14,8 @@ enum CLI {
           ClaudeProfiles                     start the menu bar app
           ClaudeProfiles --list [--json]     list profiles and their state
           ClaudeProfiles --sessions [--json] Code sessions open in each running profile
+          ClaudeProfiles --watch             print when an open session finishes or asks a question
+          ClaudeProfiles --notify-test       post a test notification and print the permission
           ClaudeProfiles --open <profile>    switch to a profile (id or name)
           ClaudeProfiles --sync [--dry-run]  copy Code session records between profiles
           ClaudeProfiles --render-icon DIR   write the app iconset (used by the installer)
@@ -27,6 +30,10 @@ enum CLI {
             list(json: args.contains("--json"))
         case "--sessions":
             sessions(json: args.contains("--json"))
+        case "--watch":
+            watch()
+        case "--notify-test":
+            return notifyTest()
         case "--open":
             guard args.count > 1 else { return fail("--open needs a profile id or name") }
             return open(args.dropFirst().joined(separator: " "))
@@ -110,6 +117,57 @@ enum CLI {
             }
         }
         if !any { print("no Code session is open in a running profile") }
+    }
+
+    /// What the notifications would say, as it happens, until interrupted.
+    static func watch() {
+        let settings = ProfileStore.load()
+        let names = Dictionary(uniqueKeysWithValues: settings.profiles.map { ($0.id, $0.name) })
+        let watcher = SessionWatcher()
+        setvbuf(stdout, nil, _IOLBF, 0)
+        var first = true
+        while true {
+            let open = RunningSessions.list(settings.profiles, instances: ClaudeInstances.list())
+            let events = watcher.poll(open)
+            if first {
+                first = false
+                for session in open.values.flatMap({ $0 }) {
+                    let state = watcher.state(of: session).map { "\($0)" } ?? "no transcript"
+                    print("\(names[session.profileID] ?? session.profileID)  \(state)  \(session.title)")
+                }
+                print("watching; ctrl-c stops")
+            }
+            for event in events {
+                let time = Date().formatted(date: .omitted, time: .standard)
+                let kind = event.kind == .finished ? "finished" : "asks"
+                print("\(time)  \(names[event.session.profileID] ?? event.session.profileID)  \(kind)  \(event.session.title)")
+            }
+            // Spinning the run loop keeps NSWorkspace's list of apps current.
+            RunLoop.main.run(until: Date().addingTimeInterval(2))
+        }
+    }
+
+    /// Asks for the notification permission, posts one notification and
+    /// says whether macOS lets them through. Run from the installed app.
+    static func notifyTest() -> Int32 {
+        guard Bundle.main.bundleIdentifier != nil else { return fail("run the binary inside Claude Profiles.app") }
+        let center = UNUserNotificationCenter.current()
+        var answer: (granted: Bool, error: Error?)?
+        center.requestAuthorization(options: [.alert, .sound]) { granted, error in answer = (granted, error) }
+        while answer == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
+        if let error = answer?.error { return fail("notifications refused: \(error.localizedDescription)") }
+        guard answer?.granted == true else {
+            return fail("notifications are off for Claude Profiles; turn them on in System Settings, Notifications")
+        }
+        let content = UNMutableNotificationContent()
+        content.title = "Claude Profiles"
+        content.body = "Notifications work."
+        var posted: Error??
+        center.add(UNNotificationRequest(identifier: "test", content: content, trigger: nil)) { posted = .some($0) }
+        while posted == nil { RunLoop.main.run(until: Date().addingTimeInterval(0.1)) }
+        if let error = posted ?? nil { return fail(error.localizedDescription) }
+        print("posted a test notification")
+        return 0
     }
 
     static func open(_ query: String) -> Int32 {

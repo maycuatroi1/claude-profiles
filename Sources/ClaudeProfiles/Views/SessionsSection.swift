@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The Code sessions open right now in each running profile. Clicking one
-/// brings its profile forward.
+/// opens it in its profile.
 struct SessionsSection: View {
     @EnvironmentObject var model: AppModel
 
@@ -53,12 +53,12 @@ struct SessionsSection: View {
                 .frame(height: Self.headerHeight)
                 ForEach(group.sessions) { session in
                     Button {
-                        model.open(group.profile)
+                        model.open(group.profile, session: session.id)
                     } label: {
                         SessionRow(session: session)
                     }
                     .buttonStyle(RowButtonStyle())
-                    .help("Switch to \(group.profile.name)")
+                    .help("Open in \(group.profile.name)")
                 }
             }
         }

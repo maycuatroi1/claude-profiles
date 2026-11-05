@@ -72,11 +72,31 @@ enum Launcher {
         app.activate(options: [.activateAllWindows])
         // A reopen event is what a Dock click sends; it makes Claude show its
         // window again when the window was closed but the app kept running.
-        let target = NSAppleEventDescriptor(processIdentifier: app.processIdentifier)
-        let event = NSAppleEventDescriptor(
-            eventClass: AEEventClass(kCoreEventClass), eventID: AEEventID(kAEReopenApplication),
-            targetDescriptor: target, returnID: AEReturnID(kAutoGenerateReturnID),
-            transactionID: AETransactionID(kAnyTransactionID))
+        send(appleEvent(AEEventClass(kCoreEventClass), AEEventID(kAEReopenApplication), to: app))
+    }
+
+    /// Opens one Code session in this instance through the claude:// link
+    /// Claude registers, sent to this process only: Launch Services would
+    /// hand the link to whichever Claude it picks.
+    static func showSession(_ sessionID: String, in app: NSRunningApplication) {
+        guard sessionID.hasPrefix("local_"), var link = URLComponents(string: "claude://code/continue") else { return }
+        link.queryItems = [URLQueryItem(name: "session", value: sessionID)]
+        guard let url = link.string else { return }
+        let event = appleEvent(AEEventClass(kInternetEventClass), AEEventID(kAEGetURL), to: app)
+        event.setParam(NSAppleEventDescriptor(string: url), forKeyword: AEKeyword(keyDirectObject))
+        send(event)
+    }
+
+    private static func appleEvent(_ eventClass: AEEventClass, _ id: AEEventID, to app: NSRunningApplication)
+        -> NSAppleEventDescriptor
+    {
+        NSAppleEventDescriptor(
+            eventClass: eventClass, eventID: id,
+            targetDescriptor: NSAppleEventDescriptor(processIdentifier: app.processIdentifier),
+            returnID: AEReturnID(kAutoGenerateReturnID), transactionID: AETransactionID(kAnyTransactionID))
+    }
+
+    private static func send(_ event: NSAppleEventDescriptor) {
         _ = try? event.sendEvent(options: [.noReply], timeout: 2)
     }
 

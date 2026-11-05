@@ -15,7 +15,8 @@ A macOS menu bar app that runs Claude Desktop under several accounts side by sid
 - **Switch in one click.** Click a profile, or press ⌘1 to ⌘9 while the menu is open. A running profile comes to the front and its window reopens if you had closed it. A stopped profile is started.
 - **Add a profile.** A new Claude window opens; sign in there with the other account. You can also point a profile at an existing folder. Folders like `~/ClaudeWork` that you already started with `--user-data-dir` are picked up on first run.
 - **Share Code tab history.** Sessions you start in the Code tab of one profile show up in the others.
-- **See every open Code session.** The menu lists the Code sessions open right now in each running profile, newest first. Click one to switch to its profile. A warning sign marks a session open in two profiles at once.
+- **See every open Code session.** The menu lists the Code sessions open right now in each running profile, newest first. Click one to open it in its profile. A warning sign marks a session open in two profiles at once.
+- **Notifications that name the profile.** When a Code session finishes its turn or asks you a question, Claude Profiles posts a notification titled with the session and the profile. Clicking it opens that session in that profile. macOS asks once whether Claude Profiles may send notifications; if they are off, the menu shows a *Turn On* button. Turn off Claude's own notifications (System Settings, Notifications, Claude) so each one arrives once.
 - **One window, several accounts.** Set *Other profiles when switching* to *Hide*: the others keep running in the background, and with the Accessibility permission the profile you switch to opens in the same place as the one you left. ⌃⌥⇥ rotates through the running profiles and shows the profile's name in the middle of the screen.
 - **Know where you are.** The menu bar icon shows the initials and colour of the profile you used last.
 - Optional: quit the other profiles when you switch, and start at login.
@@ -24,7 +25,7 @@ A macOS menu bar app that runs Claude Desktop under several accounts side by sid
 
 Every profile is the same Claude app, `com.anthropic.claudefordesktop`, started with a different data folder. macOS tells apps apart by that bundle id, so:
 
-- **Notifications.** Clicking a Claude notification can bring up a different profile than the one that sent it, and that profile may then open the session under the wrong account. Use the session list in the menu to reach the right profile, and close a session that shows the warning sign in one of its profiles.
+- **Notifications.** Clicking one of Claude's own notifications can bring up a different profile than the one that sent it, and that profile may then open the session under the wrong account. Claude Profiles' notifications avoid this: it sends the session link to the one Claude process of that profile. They come from the transcript in `~/.claude/projects`, so they cover a finished turn and a question, but not a tool waiting for permission, which looks like a tool still running.
 - **Dock and ⌘⇥.** Every profile shows the Claude icon. Only the app itself can change its Dock icon, so Claude Profiles cannot give each profile its own. The menu bar badge and the ⌃⌥⇥ overlay are there for that.
 
 A separate copy of Claude.app per profile, with its own bundle id and icon, would fix both, but it has to be re-signed without Claude's keychain entitlements and loses Claude's automatic updates, so Claude Profiles does not do that.
@@ -94,6 +95,8 @@ app="$HOME/Applications/Claude Profiles.app/Contents/MacOS/ClaudeProfiles"
 "$app" --list               # profiles, accounts, Code session counts; * marks running ones
 "$app" --list --json
 "$app" --sessions           # Code sessions open in each running profile
+"$app" --watch              # print when an open session finishes or asks a question
+"$app" --notify-test        # post a test notification and say whether macOS allows it
 "$app" --open work          # switch to a profile by id or name
 "$app" --sync --dry-run     # count what a sync would copy
 "$app" --sync
