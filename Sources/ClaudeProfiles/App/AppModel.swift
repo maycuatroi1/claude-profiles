@@ -9,6 +9,11 @@ final class AppModel: ObservableObject {
     @Published var frontPID: pid_t = 0
     @Published var accounts: [String: AccountInfo] = [:]
     @Published var sessionCounts: [String: Int] = [:]
+    /// Code sessions open right now, by profile id.
+    @Published var sessions: [String: [RunningSession]] = [:]
+    /// The Claude instance that was frontmost last; 0 when none runs.
+    @Published var lastClaudePID: pid_t = 0
+    @Published var canMoveWindows = WindowFrames.allowed
     @Published var busy: Set<String> = []
     @Published var lastSync: (date: Date, report: SyncReport)?
     @Published var syncing = false
@@ -16,6 +21,7 @@ final class AppModel: ObservableObject {
 
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
+    private var hotKey: HotKey?
 
     /// `live: false` builds a still model for `--snapshot`: no sync, no timers.
     init(live: Bool = true) {
@@ -27,6 +33,7 @@ final class AppModel: ObservableObject {
             return
         }
         sync()
+        updateHotKey()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refresh()
@@ -48,6 +55,7 @@ final class AppModel: ObservableObject {
                         guard let self else { return }
                         if name == NSWorkspace.didActivateApplicationNotification {
                             self.frontPID = app?.processIdentifier ?? 0
+                            if isClaude { self.lastClaudePID = self.frontPID }
                         } else if isClaude {
                             self.refresh()
                             // A profile that just quit can now take updated records.
@@ -69,7 +77,21 @@ final class AppModel: ObservableObject {
             sessionCounts[profile.id] = SessionSync.sessionDir(profile).map { SessionSync.sessionFiles($0).count } ?? 0
         }
         running = map
-        frontPID = NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0
+        sessions = RunningSessions.list(profiles, instances: instances)
+        let front = NSWorkspace.shared.frontmostApplication
+        frontPID = front?.processIdentifier ?? 0
+        if front?.bundleIdentifier == claudeBundleID {
+            lastClaudePID = frontPID
+        } else if !map.values.contains(where: { $0.processIdentifier == lastClaudePID }) {
+            lastClaudePID = 0
+        }
+        canMoveWindows = WindowFrames.allowed
+    }
+
+    /// The profile of the Claude used last, which the menu bar icon shows.
+    var lastClaudeProfile: Profile? {
+        guard lastClaudePID != 0 else { return nil }
+        return profiles.first { running[$0.id]?.processIdentifier == lastClaudePID }
     }
 
     func isFront(_ profile: Profile) -> Bool {
@@ -97,12 +119,26 @@ final class AppModel: ObservableObject {
         guard !busy.contains(profile.id) else { return }
         busy.insert(profile.id)
         let settings = self.settings
+        let previous = running.values.first { $0.processIdentifier == lastClaudePID }
         Task {
-            do { try await Launcher.switchTo(profile, settings: settings) } catch { message = error.localizedDescription }
+            do { try await Launcher.switchTo(profile, settings: settings, from: previous) } catch {
+                message = error.localizedDescription
+            }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
             busy.remove(profile.id)
             refresh()
         }
+    }
+
+    /// ⌃⌥⇥: the next profile, with its name shown in the middle of the screen.
+    func cycle() {
+        let current = lastClaudeProfile?.id
+        guard let next = ProfileCycle.next(profiles, running: Set(running.keys), current: current) else { return }
+        SwitchHUD.show(next, detail: running[next.id] == nil ? "Starting…" : nil)
+        open(next)
+        // Count a quick second press from the new profile, before macOS
+        // reports it frontmost.
+        if let app = running[next.id] { lastClaudePID = app.processIdentifier }
     }
 
     func quit(_ profile: Profile) {
@@ -188,12 +224,35 @@ final class AppModel: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([profile.dataURL])
     }
 
-    var closeOthersOnSwitch: Bool {
-        get { settings.closeOthersOnSwitch ?? false }
+    var othersOnSwitch: OthersOnSwitch {
+        get { settings.others }
         set {
-            settings.closeOthersOnSwitch = newValue
+            settings.othersOnSwitch = newValue
+            settings.closeOthersOnSwitch = newValue == .quit
             persist()
+            if newValue == .hide && !WindowFrames.allowed { WindowFrames.askForAccess() }
         }
+    }
+
+    var cycleHotKey: Bool {
+        get { settings.cycleHotKey ?? true }
+        set {
+            settings.cycleHotKey = newValue
+            persist()
+            updateHotKey()
+        }
+    }
+
+    private func updateHotKey() {
+        guard cycleHotKey else {
+            hotKey = nil
+            return
+        }
+        guard hotKey == nil else { return }
+        hotKey = HotKey.cycleProfiles { [weak self] in
+            Task { @MainActor in self?.cycle() }
+        }
+        if hotKey == nil { message = "Another app already uses ⌃⌥⇥, so it cannot rotate profiles." }
     }
 
     var launchAtLogin: Bool {

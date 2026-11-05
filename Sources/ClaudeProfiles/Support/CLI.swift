@@ -3,7 +3,7 @@ import SwiftUI
 
 enum CLI {
     static let commands: Set<String> = [
-        "--help", "-h", "--version", "--list", "--open", "--sync", "--render-icon", "--snapshot",
+        "--help", "-h", "--version", "--list", "--sessions", "--open", "--sync", "--render-icon", "--snapshot",
     ]
 
     static let usage = """
@@ -12,6 +12,7 @@ enum CLI {
         Usage:
           ClaudeProfiles                     start the menu bar app
           ClaudeProfiles --list [--json]     list profiles and their state
+          ClaudeProfiles --sessions [--json] Code sessions open in each running profile
           ClaudeProfiles --open <profile>    switch to a profile (id or name)
           ClaudeProfiles --sync [--dry-run]  copy Code session records between profiles
           ClaudeProfiles --render-icon DIR   write the app iconset (used by the installer)
@@ -24,6 +25,8 @@ enum CLI {
             print(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev")
         case "--list":
             list(json: args.contains("--json"))
+        case "--sessions":
+            sessions(json: args.contains("--json"))
         case "--open":
             guard args.count > 1 else { return fail("--open needs a profile id or name") }
             return open(args.dropFirst().joined(separator: " "))
@@ -74,6 +77,41 @@ enum CLI {
         }
     }
 
+    static func sessions(json: Bool) {
+        let settings = ProfileStore.load()
+        let open = RunningSessions.list(settings.profiles, instances: ClaudeInstances.list())
+        if json {
+            let dates = ISO8601DateFormatter()
+            let rows: [[String: Any]] = settings.profiles.flatMap { profile in
+                (open[profile.id] ?? []).map { session in
+                    [
+                        "profile": profile.id, "session": session.id, "title": session.title,
+                        "cwd": session.cwd ?? NSNull(), "pid": Int(session.pid),
+                        "lastActivity": session.lastActivity.map { dates.string(from: $0) } ?? NSNull(),
+                        "alsoOpenIn": session.alsoOpenIn,
+                    ]
+                }
+            }
+            let data = try? JSONSerialization.data(
+                withJSONObject: rows, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
+            print(String(decoding: data ?? Data(), as: UTF8.self))
+            return
+        }
+        var any = false
+        for profile in settings.profiles {
+            guard let sessions = open[profile.id], !sessions.isEmpty else { continue }
+            any = true
+            print("\(profile.name) (\(profile.id))")
+            for session in sessions {
+                let age = shortAge(session.lastActivity)
+                let place = session.cwd.map(abbreviateHome) ?? ""
+                let warning = session.alsoOpenIn.isEmpty ? "" : "  also open in \(session.alsoOpenIn.joined(separator: ", "))"
+                print("  \(age.padding(toLength: 4, withPad: " ", startingAt: 0)) \(session.title)  \(place)\(warning)")
+            }
+        }
+        if !any { print("no Code session is open in a running profile") }
+    }
+
     static func open(_ query: String) -> Int32 {
         let settings = ProfileStore.load()
         let needle = query.lowercased()
@@ -82,7 +120,9 @@ enum CLI {
                 ?? settings.profiles.first(where: { $0.name.lowercased() == needle })
         else { return fail("no profile named \(query); see --list") }
         do {
-            try runBlocking { try await Launcher.switchTo(profile, settings: settings) }
+            let front = NSWorkspace.shared.frontmostApplication
+            let previous = front?.bundleIdentifier == claudeBundleID ? front : nil
+            try runBlocking { try await Launcher.switchTo(profile, settings: settings, from: previous) }
         } catch {
             return fail(error.localizedDescription)
         }

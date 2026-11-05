@@ -15,7 +15,19 @@ A macOS menu bar app that runs Claude Desktop under several accounts side by sid
 - **Switch in one click.** Click a profile, or press ⌘1 to ⌘9 while the menu is open. A running profile comes to the front and its window reopens if you had closed it. A stopped profile is started.
 - **Add a profile.** A new Claude window opens; sign in there with the other account. You can also point a profile at an existing folder. Folders like `~/ClaudeWork` that you already started with `--user-data-dir` are picked up on first run.
 - **Share Code tab history.** Sessions you start in the Code tab of one profile show up in the others.
-- Optional: close the other profiles when you switch, and start at login.
+- **See every open Code session.** The menu lists the Code sessions open right now in each running profile, newest first. Click one to switch to its profile. A warning sign marks a session open in two profiles at once.
+- **One window, several accounts.** Set *Other profiles when switching* to *Hide*: the others keep running in the background, and with the Accessibility permission the profile you switch to opens in the same place as the one you left. ⌃⌥⇥ rotates through the running profiles and shows the profile's name in the middle of the screen.
+- **Know where you are.** The menu bar icon shows the initials and colour of the profile you used last.
+- Optional: quit the other profiles when you switch, and start at login.
+
+## Limits of running one app several times
+
+Every profile is the same Claude app, `com.anthropic.claudefordesktop`, started with a different data folder. macOS tells apps apart by that bundle id, so:
+
+- **Notifications.** Clicking a Claude notification can bring up a different profile than the one that sent it, and that profile may then open the session under the wrong account. Use the session list in the menu to reach the right profile, and close a session that shows the warning sign in one of its profiles.
+- **Dock and ⌘⇥.** Every profile shows the Claude icon. Only the app itself can change its Dock icon, so Claude Profiles cannot give each profile its own. The menu bar badge and the ⌃⌥⇥ overlay are there for that.
+
+A separate copy of Claude.app per profile, with its own bundle id and icon, would fix both, but it has to be re-signed without Claude's keychain entitlements and loses Claude's automatic updates, so Claude Profiles does not do that.
 
 ## Sharing Code session history
 
@@ -81,6 +93,7 @@ The app binary answers a few commands too:
 app="$HOME/Applications/Claude Profiles.app/Contents/MacOS/ClaudeProfiles"
 "$app" --list               # profiles, accounts, Code session counts; * marks running ones
 "$app" --list --json
+"$app" --sessions           # Code sessions open in each running profile
 "$app" --open work          # switch to a profile by id or name
 "$app" --sync --dry-run     # count what a sync would copy
 "$app" --sync
@@ -106,6 +119,8 @@ make app        # release build of build/Claude Profiles.app
 make snapshot   # draw the menu with your real profiles to build/menu.png
 UNIVERSAL=1 make app   # arm64 + x86_64 (needs full Xcode)
 ```
+
+Started from a terminal inside a Claude Code session (for example `make install` in the Code tab), the app drops the variables Claude Code sets for its commands, so the Claude instances it opens do not inherit that session's socket and account.
 
 Releases: bump `VERSION`, commit, then push a matching tag (`git tag v0.2.0 && git push origin v0.2.0`). The release workflow tests, builds the universal app and publishes the zip with its checksum. The Homebrew cask follows within about an hour.
 

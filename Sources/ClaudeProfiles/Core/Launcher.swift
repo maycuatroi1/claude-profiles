@@ -19,21 +19,41 @@ enum Launcher {
 
     /// Bring a running profile forward, or start it. Starting pulls the shared
     /// Code sessions in first, while that profile is still closed.
-    static func switchTo(_ profile: Profile, settings: ProfileSettings) async throws {
-        if let app = ClaudeInstances.find(profile) {
+    ///
+    /// The other running profiles stay, hide or quit as the settings say.
+    /// When they hide, the profile you switch to takes the window frame of
+    /// `previous`, the Claude you switch away from, so one window seems to
+    /// change account.
+    static func switchTo(_ profile: Profile, settings: ProfileSettings, from previous: NSRunningApplication? = nil)
+        async throws
+    {
+        let mode = settings.others
+        let instances = ClaudeInstances.list()
+        let others = settings.profiles.filter { $0.id != profile.id }.compactMap { ClaudeInstances.find($0, in: instances) }
+        let frame = mode == .hide ? previous.flatMap { $0.isTerminated ? nil : WindowFrames.frame(of: $0) } : nil
+        if let app = ClaudeInstances.find(profile, in: instances) {
+            if let frame, app != previous { WindowFrames.setFrame(frame, of: app) }
             bringToFront(app)
+            if mode == .hide { hide(others) }
             return
         }
-        if settings.closeOthersOnSwitch == true {
-            for other in settings.profiles where other.id != profile.id {
-                if let app = ClaudeInstances.find(other) { _ = await terminate(app) }
-            }
+        if mode == .quit {
+            for app in others { _ = await terminate(app) }
         }
         _ = SessionSync().run(settings.profiles, running: ClaudeInstances.runningIDs(settings.profiles))
-        try await launch(profile)
+        let app = try await launch(profile)
+        if mode == .hide {
+            if let frame { await WindowFrames.place(app, at: frame) }
+            hide(others)
+        }
     }
 
-    static func launch(_ profile: Profile) async throws {
+    static func hide(_ apps: [NSRunningApplication]) {
+        for app in apps where !app.isHidden && !app.isTerminated { app.hide() }
+    }
+
+    @discardableResult
+    static func launch(_ profile: Profile) async throws -> NSRunningApplication {
         guard let claude = claudeAppURL() else { throw LaunchError.claudeMissing }
         let config = NSWorkspace.OpenConfiguration()
         // Always a new instance: without it Launch Services would just
@@ -44,7 +64,7 @@ enum Launcher {
             try makePrivateDirectory(profile.dataURL)
             config.arguments = ["--user-data-dir=\(profile.dataURL.path)"]
         }
-        _ = try await NSWorkspace.shared.openApplication(at: claude, configuration: config)
+        return try await NSWorkspace.shared.openApplication(at: claude, configuration: config)
     }
 
     static func bringToFront(_ app: NSRunningApplication) {

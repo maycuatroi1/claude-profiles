@@ -15,9 +15,40 @@ struct Profile: Codable, Identifiable, Equatable {
     }
 }
 
+/// What happens to the other running profiles when you switch to one.
+enum OthersOnSwitch: String, Codable, CaseIterable {
+    case keep, hide, quit
+
+    /// A value from a newer version reads as `keep` instead of failing the
+    /// whole settings file.
+    init(from decoder: Decoder) throws {
+        self = OthersOnSwitch(rawValue: try decoder.singleValueContainer().decode(String.self)) ?? .keep
+    }
+}
+
 struct ProfileSettings: Codable {
     var profiles: [Profile]
+    /// Before 0.2 the only choice; true meant quit. Kept in step with
+    /// `othersOnSwitch` so an older version still reads it.
     var closeOthersOnSwitch: Bool?
+    var othersOnSwitch: OthersOnSwitch?
+    /// ⌃⌥⇥ rotates through the profiles; on unless turned off.
+    var cycleHotKey: Bool?
+
+    var others: OthersOnSwitch { othersOnSwitch ?? (closeOthersOnSwitch == true ? .quit : .keep) }
+}
+
+enum ProfileCycle {
+    /// The profile after `current`: among the running ones when two or more
+    /// run, otherwise among all of them, so a single running profile rotates
+    /// to the next one in the list.
+    static func next(_ profiles: [Profile], running: Set<String>, current: String?) -> Profile? {
+        let live = profiles.filter { running.contains($0.id) }
+        let pool = live.count > 1 ? live : profiles
+        guard !pool.isEmpty else { return nil }
+        let index = pool.firstIndex { $0.id == current } ?? -1
+        return pool[(index + 1) % pool.count]
+    }
 }
 
 enum ProfileStore {

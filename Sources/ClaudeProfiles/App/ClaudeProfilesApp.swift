@@ -19,7 +19,14 @@ struct ClaudeProfilesApp: App {
         MenuBarExtra {
             ContentView().environmentObject(model)
         } label: {
-            Image(systemName: "person.2.circle")
+            if let profile = model.lastClaudeProfile {
+                Image(
+                    nsImage: IconRenderer.badge(
+                        initials: initials(profile.name), color: NSColor(palette[profile.color % palette.count]),
+                        name: profile.name))
+            } else {
+                Image(systemName: "person.2.circle")
+            }
         }
         .menuBarExtraStyle(.window)
     }
@@ -28,6 +35,7 @@ struct ClaudeProfilesApp: App {
 @main
 enum Entry {
     static func main() {
+        LaunchEnvironment.scrub()
         let args = Array(CommandLine.arguments.dropFirst())
         if let first = args.first, CLI.commands.contains(first) {
             exit(CLI.run(args))

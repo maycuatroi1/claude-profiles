@@ -1,5 +1,24 @@
 import SwiftUI
 
+/// A profile's initials on its colour; solid while the profile runs.
+struct ProfileAvatar: View {
+    let profile: Profile
+    var size: CGFloat = 30
+    var filled = true
+
+    private var tint: Color { palette[profile.color % palette.count] }
+
+    var body: some View {
+        ZStack {
+            Circle().fill(filled ? tint : tint.opacity(0.18))
+            Text(initials(profile.name))
+                .font(.system(size: size * 0.4, weight: .bold))
+                .foregroundStyle(filled ? Color.white : tint)
+        }
+        .frame(width: size, height: size)
+    }
+}
+
 struct MessageBanner: View {
     let text: String
     let dismiss: () -> Void
