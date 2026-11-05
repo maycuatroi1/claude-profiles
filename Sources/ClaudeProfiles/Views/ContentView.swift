@@ -91,6 +91,25 @@ struct ContentView: View {
                     Button("Allow Window Moving…") { WindowFrames.askForAccess() }.controlSize(.small)
                 }
             }
+            Toggle("Notify when a session finishes, naming its profile", isOn: $model.notifySessions)
+            if model.notifySessions {
+                HStack(alignment: .firstTextBaseline) {
+                    Text(
+                        model.notificationsAllowed
+                            ? "Turn off Claude's own notifications so each one arrives once."
+                            : "macOS has notifications turned off for Claude Profiles."
+                    )
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(model.notificationsAllowed ? Color.secondary : Color.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    Spacer()
+                    Button(model.notificationsAllowed ? "Claude's…" : "Turn On…") {
+                        Notifier.openSettings(
+                            for: model.notificationsAllowed ? claudeBundleID : Bundle.main.bundleIdentifier ?? "")
+                    }
+                    .controlSize(.small)
+                }
+            }
             Toggle("⌃⌥⇥ rotates through profiles", isOn: $model.cycleHotKey)
             Toggle("Open at login", isOn: $model.launchAtLogin)
             HStack {

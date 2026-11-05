@@ -34,6 +34,8 @@ struct ProfileSettings: Codable {
     var othersOnSwitch: OthersOnSwitch?
     /// ⌃⌥⇥ rotates through the profiles; on unless turned off.
     var cycleHotKey: Bool?
+    /// This app's own notifications for Code sessions; on unless turned off.
+    var notifySessions: Bool?
 
     var others: OthersOnSwitch { othersOnSwitch ?? (closeOthersOnSwitch == true ? .quit : .keep) }
 }

@@ -9,6 +9,10 @@ struct RunningSession: Identifiable, Equatable {
     var title: String
     var cwd: String?
     var lastActivity: Date?
+    /// When the profile last showed this session; the newest is the one on screen.
+    var lastFocused: Date?
+    /// Claude Code's own id, which names the transcript.
+    var cliSessionID: String?
     /// Names of other profiles that have this session open at the same time.
     var alsoOpenIn: [String] = []
 }
@@ -66,8 +70,12 @@ enum RunningSessions {
         let cwd = (record["cwd"] as? String).flatMap { $0.isEmpty ? nil : $0 }
         let title = (record["title"] as? String).flatMap { $0.isEmpty ? nil : $0 }
             ?? cwd.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Untitled session"
-        let activity = (record["lastActivityAt"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue / 1000) }
-        return RunningSession(id: id, profileID: profileID, pid: pid, title: title, cwd: cwd, lastActivity: activity)
+        func date(_ key: String) -> Date? {
+            (record[key] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue / 1000) }
+        }
+        return RunningSession(
+            id: id, profileID: profileID, pid: pid, title: title, cwd: cwd, lastActivity: date("lastActivityAt"),
+            lastFocused: date("lastFocusedAt"), cliSessionID: record["cliSessionId"] as? String)
     }
 }
 

@@ -14,6 +14,7 @@ final class AppModel: ObservableObject {
     /// The Claude instance that was frontmost last; 0 when none runs.
     @Published var lastClaudePID: pid_t = 0
     @Published var canMoveWindows = WindowFrames.allowed
+    @Published var notificationsAllowed = true
     @Published var busy: Set<String> = []
     @Published var lastSync: (date: Date, report: SyncReport)?
     @Published var syncing = false
@@ -22,6 +23,9 @@ final class AppModel: ObservableObject {
     private var timer: Timer?
     private var observers: [NSObjectProtocol] = []
     private var hotKey: HotKey?
+    private var watchTimer: Timer?
+    private let watcher = SessionWatcher()
+    private let notifier = Notifier()
 
     /// `live: false` builds a still model for `--snapshot`: no sync, no timers.
     init(live: Bool = true) {
@@ -34,6 +38,11 @@ final class AppModel: ObservableObject {
         }
         sync()
         updateHotKey()
+        notifier.onOpen = { [weak self] profileID, sessionID in
+            guard let profile = self?.profiles.first(where: { $0.id == profileID }) else { return }
+            self?.open(profile, session: sessionID)
+        }
+        updateWatching()
         timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.refresh()
@@ -86,6 +95,7 @@ final class AppModel: ObservableObject {
             lastClaudePID = 0
         }
         canMoveWindows = WindowFrames.allowed
+        if watchTimer != nil { notifier.checkPermission { [weak self] in self?.notificationsAllowed = $0 } }
     }
 
     /// The profile of the Claude used last, which the menu bar icon shows.
@@ -115,13 +125,47 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func open(_ profile: Profile) {
+    /// Every few seconds: which sessions are open, and which of them just
+    /// finished or asked something.
+    private func watchSessions() {
+        let instances = ClaudeInstances.list()
+        let open = RunningSessions.list(profiles, instances: instances)
+        if open != sessions { sessions = open }
+        let front = NSWorkspace.shared.frontmostApplication?.processIdentifier
+        for event in watcher.poll(open) {
+            guard let profile = profiles.first(where: { $0.id == event.session.profileID }) else { continue }
+            // The session on screen in the Claude in front needs no notification.
+            let onScreen = open[profile.id]?.max { ($0.lastFocused ?? .distantPast) < ($1.lastFocused ?? .distantPast) }
+            if ClaudeInstances.find(profile, in: instances)?.processIdentifier == front, onScreen?.id == event.session.id {
+                continue
+            }
+            notifier.post(event, profile: profile)
+        }
+    }
+
+    private func updateWatching() {
+        watchTimer?.invalidate()
+        watchTimer = nil
+        guard notifySessions else { return }
+        notifier.start()
+        notifier.checkPermission { [weak self] in self?.notificationsAllowed = $0 }
+        watchSessions()
+        watchTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.watchSessions() }
+        }
+    }
+
+    /// Switches to the profile; with `session`, also opens that Code session in it.
+    func open(_ profile: Profile, session: String? = nil) {
         guard !busy.contains(profile.id) else { return }
         busy.insert(profile.id)
         let settings = self.settings
         let previous = running.values.first { $0.processIdentifier == lastClaudePID }
         Task {
-            do { try await Launcher.switchTo(profile, settings: settings, from: previous) } catch {
+            do {
+                try await Launcher.switchTo(profile, settings: settings, from: previous)
+                if let session, let app = ClaudeInstances.find(profile) { Launcher.showSession(session, in: app) }
+            } catch {
                 message = error.localizedDescription
             }
             try? await Task.sleep(nanoseconds: 1_500_000_000)
@@ -231,6 +275,15 @@ final class AppModel: ObservableObject {
             settings.closeOthersOnSwitch = newValue == .quit
             persist()
             if newValue == .hide && !WindowFrames.allowed { WindowFrames.askForAccess() }
+        }
+    }
+
+    var notifySessions: Bool {
+        get { settings.notifySessions ?? true }
+        set {
+            settings.notifySessions = newValue
+            persist()
+            updateWatching()
         }
     }
 
